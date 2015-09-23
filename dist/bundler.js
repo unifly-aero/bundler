@@ -35,15 +35,25 @@ var _lodash = require('lodash');
 
 var _lodash2 = _interopRequireDefault(_lodash);
 
+var _systemjsBuilder = require('systemjs-builder');
+
+var _systemjsBuilder2 = _interopRequireDefault(_systemjsBuilder);
+
 function bundle(includes, excludes, fileName, _opts) {
-  var opts = _lodash2['default'].defaultsDeep(_opts, {
+
+  /*
+  let opts = _.defaultsDeep(_opts, {
     packagePath: '.'
   });
+   jspm.setPackagePath(opts.packagePath);
+  let builderCfg = opts.builderCfg || {};
+    let builder = new jspm.Builder(builderCfg);
+  let outfile = path.resolve(fromFileURL(builder.loader.baseURL), fileName);
+  */
 
-  _jspm2['default'].setPackagePath(opts.packagePath);
+  var opts = _opts;
+  var builder = new _systemjsBuilder2['default']('.', './config.js');
 
-  var builderCfg = opts.builderCfg || {};
-  var builder = new _jspm2['default'].Builder(builderCfg);
   var outfile = _path2['default'].resolve((0, _systemjsBuilderLibUtils.fromFileURL)(builder.loader.baseURL), fileName);
 
   if (_fs2['default'].existsSync(outfile)) {
@@ -53,11 +63,13 @@ function bundle(includes, excludes, fileName, _opts) {
     _fs2['default'].unlinkSync(outfile);
   }
 
+  var map = getConfig();
+
   var includeExpression = includes.map(function (m) {
-    return getFullModuleName(m, _jspmLibConfig2['default'].loader.__originalConfig.map);
+    return getFullModuleName(m, map);
   }).join(' + ');
   var excludeExpression = excludes.map(function (m) {
-    return getFullModuleName(m, _jspmLibConfig2['default'].loader.__originalConfig.map);
+    return getFullModuleName(m, map);
   }).join(' - ');
 
   var moduleExpression = includeExpression;
@@ -65,20 +77,11 @@ function bundle(includes, excludes, fileName, _opts) {
     moduleExpression = moduleExpression + ' - ' + excludeExpression;
   }
 
-  if (!('lowResSourceMaps' in opts)) {
-    opts.lowResSourceMaps = true;
-  }
-
-  if (!opts.sourceMaps) {
-    removeExistingSourceMap(outfile);
-  }
-
-  return builder.trace(moduleExpression).then(function (tree) {
-    return builder.buildTree(tree, outfile, opts);
-  }).then(function (output) {
-    delete _jspmLibConfig2['default'].loader.depCache;
-    if (opts.inject) injectBundle(builder, fileName, output);
-  }).then(_jspmLibConfig2['default'].save);
+  return builder.bundle(moduleExpression, outfile, opts).then(function (output) {
+    //      delete config.loader.depCache;
+    //     if (opts.inject) injectBundle(builder, fileName, output);
+  });
+  //  .then(config.save);
 }
 
 ;
@@ -115,4 +118,26 @@ function getFullModuleName(moduleName, map) {
   }
 
   return matches[0];
+}
+
+function getConfig() {
+  var vm = require('vm');
+  var util = require('util');
+  var fs = require('fs');
+
+  var sandbox = {};
+  sandbox.System = {
+    config: function config(cfg) {
+      for (var key in cfg) {
+        this[key] = cfg[key];
+      }
+    }
+  };
+
+  var content = fs.readFileSync('./config.js', 'utf-8');
+  var ctx = vm.createContext(sandbox);
+
+  vm.runInContext(content, sandbox);
+
+  return sandbox.System.map;
 }

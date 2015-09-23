@@ -45,10 +45,10 @@ function bundle(_config) {
   });
 
   var bundles = config.bundles;
-
   _Object$keys(bundles).forEach(function (key) {
-
     var cfg = bundles[key];
+
+    if (cfg.skip) return;
 
     if (cfg.htmlimport) {
       tasks.push(_bundleHtmlImportTemplate(cfg, key, config));
